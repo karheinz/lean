@@ -51,12 +51,7 @@ fn parse(args: &[String]) -> Result<Box<dyn Command>, String> {
     }
 
     match command_str {
-        Some("list") => {
-            match ListTasks::new(&args[2..]) {
-                Ok(task) => Ok(Box::new(task)),
-                Err(reason) => Err(reason),
-            }
-        },
+        Some("list") => Ok(Box::new(ListTasks::new(&args[2..])?)),
         Some(unknown) => Err(format!("unknown command {}", unknown)),
         _ => Err(String::from("unknown command")),
     }
@@ -65,8 +60,5 @@ fn parse(args: &[String]) -> Result<Box<dyn Command>, String> {
 fn main() -> Result<(), String> {
     let args: Vec<String> = env::args().collect();
 
-    match parse(&args) {
-        Ok(task) => task.run(),
-        Err(reason) => Err(reason),
-    }
+    parse(&args)?.run()
 }
