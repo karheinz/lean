@@ -71,7 +71,7 @@ impl ListTasks {
 
                 Ok(ListTasks { dir, limit })
             },
-            Err(reason) => Err(format!("{:?}", reason)),
+            Err(reason) => Err(format!("{}", reason)),
         }
     }
 }
@@ -114,7 +114,7 @@ impl ShowTask {
 
                 Ok(ShowTask { dir, ids })
             },
-            Err(reason) => Err(format!("{:?}", reason)),
+            Err(reason) => Err(format!("{}", reason)),
         }
     }
 }
