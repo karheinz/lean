@@ -75,7 +75,7 @@ pub struct ShowHelp {
 }
 
 impl ShowHelp {
-    pub fn new(arg0: &String, args: &[String]) -> Result<ShowHelp, String> {
+    pub fn new(path: &String, args: &[String]) -> Result<ShowHelp, String> {
         let options = Options::new();
         match options.parse(&args[..]) {
             Ok(_) => Ok(()),
@@ -84,7 +84,7 @@ impl ShowHelp {
 
         check_num_of(&args, 0, 0)?;
 
-        if let Some(program) = Path::new(&arg0).file_name() {
+        if let Some(program) = Path::new(&path).file_name() {
             if let Some(program_str) = program.to_str() {
                 return Ok(ShowHelp { program: String::from(program_str) })
             }
