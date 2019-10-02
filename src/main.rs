@@ -5,7 +5,7 @@ use lean::cli::*;
 fn parse(args: &[String]) -> Result<Box<dyn Command>, String> {
     let arg1 = args.get(1);
 
-    let mut command_str : Option<&str> = None;
+    let mut command_str: Option<&str> = None;
     if let Some(arg1_value) = arg1 {
         command_str = Some(&arg1_value[..]);
     }
