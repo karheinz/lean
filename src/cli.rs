@@ -46,13 +46,45 @@ pub trait Command {
 }
 
 #[derive(Debug)]
+pub struct ShowUsage {
+    program: String
+}
+
+impl ShowUsage {
+    pub fn new(path: &String) -> Result<ShowUsage, String> {
+        if let Some(program) = Path::new(path).file_name() {
+            if let Some(program_str) = program.to_str() {
+                return Ok(ShowUsage { program: String::from(program_str) })
+            }
+        }
+
+        Err(format!("should never come here"))
+    }
+}
+
+impl Command for ShowUsage {
+    fn run(&self) -> Result<(), String> {
+        println!("usage: {} COMMAND [ARGS...]", self.program);
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
 pub struct ShowHelp {
     program: String
 }
 
 impl ShowHelp {
-    pub fn new(path: &String) -> Result<ShowHelp, String> {
-        if let Some(program) = Path::new(path).file_name() {
+    pub fn new(arg0: &String, args: &[String]) -> Result<ShowHelp, String> {
+        let options = Options::new();
+        match options.parse(&args[..]) {
+            Ok(_) => Ok(()),
+            Err(reason) => Err(format!("{}", reason)),
+        }?;
+
+        check_num_of(&args, 0, 0)?;
+
+        if let Some(program) = Path::new(&arg0).file_name() {
             if let Some(program_str) = program.to_str() {
                 return Ok(ShowHelp { program: String::from(program_str) })
             }
