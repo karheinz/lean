@@ -1,5 +1,5 @@
 use std::env;
-use lean::cli::{Command, ListTasks};
+use lean::cli::*;
 
 
 fn parse(args: &[String]) -> Result<Box<dyn Command>, String> {
@@ -12,6 +12,7 @@ fn parse(args: &[String]) -> Result<Box<dyn Command>, String> {
 
     match command_str {
         Some("list") => Ok(Box::new(ListTasks::new(&args[2..])?)),
+        Some("show") => Ok(Box::new(ShowTask::new(&args[2..])?)),
         Some(unknown) => Err(format!("unknown command {}", unknown)),
         _ => Err(String::from("unknown command")),
     }
