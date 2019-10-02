@@ -14,12 +14,18 @@ fn parse(args: &[String]) -> Result<Box<dyn Command>, String> {
         Some("list") => Ok(Box::new(ListTasks::new(&args[2..])?)),
         Some("show") => Ok(Box::new(ShowTask::new(&args[2..])?)),
         Some(unknown) => Err(format!("unknown command {}", unknown)),
-        _ => Err(String::from("unknown command")),
+        _ => Ok(Box::new(ShowHelp::new(&args[0])?)),
     }
 }
 
 fn main() -> Result<(), String> {
     let args: Vec<String> = env::args().collect();
 
-    parse(&args)?.run()
+    match parse(&args) {
+        Ok(command) => command.run(),
+        Err(reason) => {
+            ShowHelp::new(&args[0])?.run()?;
+            Err(reason)
+        }
+    }
 }

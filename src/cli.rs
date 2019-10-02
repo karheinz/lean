@@ -46,6 +46,30 @@ pub trait Command {
 }
 
 #[derive(Debug)]
+pub struct ShowHelp {
+    program: String
+}
+
+impl ShowHelp {
+    pub fn new(path: &String) -> Result<ShowHelp, String> {
+        if let Some(program) = Path::new(path).file_name() {
+            if let Some(program_str) = program.to_str() {
+                return Ok(ShowHelp { program: String::from(program_str) })
+            }
+        }
+
+        Err(format!("should never come here"))
+    }
+}
+
+impl Command for ShowHelp {
+    fn run(&self) -> Result<(), String> {
+        println!("Help for {} is comming soon ...", self.program);
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
 pub struct ListTasks {
     dir: PathBuf,
     limit: u32,
