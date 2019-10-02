@@ -12,6 +12,32 @@ fn is_dir(path: &Path) -> Result<(), String> {
     }
 }
 
+fn check_num_of(elems: &[String], min: u32, max: u32) -> Result<(), String> {
+    assert!(min <= max);
+
+    let count: u32 = elems.len() as u32;
+
+    if count < min {
+        Err(format!("too few arguments"))
+    } else if count > max {
+        Err(format!("too many arguments"))
+    } else {
+        Ok(())
+    }
+}
+
+fn to_limit(string: Option<String>, radix: u32) -> Result<u32, String> {
+    match string {
+        Some(s) => {
+            match u32::from_str_radix(&s, radix) {
+                Ok(n) => Ok(n),
+                Err(e) => Err(format!("{}", e)),
+            }
+        },
+        _ => Ok(0),
+    }
+}
+
 pub trait Command {
     // Runs the command.
     //
@@ -22,6 +48,7 @@ pub trait Command {
 #[derive(Debug)]
 pub struct ListTasks {
     dir: PathBuf,
+    limit: u32,
 }
 
 impl ListTasks {
@@ -37,7 +64,12 @@ impl ListTasks {
                 }
                 is_dir(dir.as_path())?;
 
-                Ok(ListTasks { dir })
+                let mut args = matches.free;
+                check_num_of(&args, 0, 1)?;
+
+                let limit = to_limit(args.pop(), 10)?;
+
+                Ok(ListTasks { dir, limit })
             },
             Err(reason) => Err(format!("{:?}", reason)),
         }
@@ -46,7 +78,12 @@ impl ListTasks {
 
 impl Command for ListTasks {
     fn run(&self) -> Result<(), String> {
-        println!("Here are your tasks!");
+        match self.limit {
+            0 => println!("Here are your latest tasks!"),
+            1 => println!("Here is your latest task!"),
+            _ => println!("Here are your latest {} tasks!", self.limit),
+        }
+
         Ok(())
     }
 }
