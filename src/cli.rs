@@ -4,6 +4,9 @@ use std::path::{Path, PathBuf};
 use getopts::Options;
 
 
+/// Checks if the passed path is a directory.
+///
+/// Returns either Ok(()) or Err(reason: String).
 fn is_dir(path: &Path) -> Result<(), String> {
     if path.is_dir() {
         Ok(())
@@ -12,6 +15,10 @@ fn is_dir(path: &Path) -> Result<(), String> {
     }
 }
 
+/// Checks the number of elements in the passed slice
+/// against a minimum and maximum value.
+///
+/// Returns either Ok(()) or Err(reason: String).
 fn check_num_of(elems: &[String], min: u32, max: u32) -> Result<(), String> {
     assert!(min <= max);
 
@@ -101,6 +108,9 @@ impl Command for ShowHelp {
     }
 }
 
+/// A command to list task(s).
+///
+/// For each selected task a short summary is printed to stdout.
 #[derive(Debug)]
 pub struct ListTasks {
     dir: PathBuf,
@@ -108,6 +118,10 @@ pub struct ListTasks {
 }
 
 impl ListTasks {
+    /// Constructs a new ListTasks object.
+    ///
+    /// Considers the passed command line arguments.
+    /// Returns either Ok(object: ListTasks) or Err(reason: String).
     pub fn new(args: &[String]) -> Result<ListTasks, String> {
         let mut options = Options::new();
 
@@ -144,6 +158,9 @@ impl Command for ListTasks {
     }
 }
 
+/// A command to show task(s).
+///
+/// Each selected task is printed to stdout in detail.
 #[derive(Debug)]
 pub struct ShowTask {
     dir: PathBuf,
