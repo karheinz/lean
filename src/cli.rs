@@ -186,3 +186,80 @@ impl Command for ShowTask {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Converts an array of &str elems to a vector of String elems.
+    ///
+    /// This is usefull as command line arguments will usually come as
+    /// a vector of String elems. All command constructors have an args
+    /// parameter of that type.
+    fn to_args(args: &[&str]) -> Vec<String> {
+        let mut args_vector: Vec<String> = Vec::new();
+
+        for arg in args {
+            args_vector.push(String::from(*arg));
+        }
+
+        args_vector
+    }
+
+    fn check_parse_error<T>(result: &Result<T, String>, expected: &str)
+        -> Result<(), String> {
+
+        match result {
+            Err(reason) => {
+                assert_eq!(expected, reason);
+                Ok(())
+            },
+            _ => Err(format!("ignored error: {}", expected))
+        }
+    }
+
+    #[test]
+    fn create_list_tasks_command() -> Result<(), String> {
+        let args = to_args(&[]);
+
+        let command = ListTasks::new(&args)?;
+        assert_eq!(Path::new("."), command.dir);
+        assert_eq!(0, command.limit);
+
+        let args = to_args(&["0"]);
+
+        let command = ListTasks::new(&args)?;
+        assert_eq!(Path::new("."), command.dir);
+        assert_eq!(0, command.limit);
+
+        Ok(())
+    }
+
+    #[test]
+    fn create_list_tasks_command_with_limit() -> Result<(), String> {
+        let args = to_args(&["10"]);
+
+        let command = ListTasks::new(&args)?;
+        assert_eq!(Path::new("."), command.dir);
+        assert_eq!(10, command.limit);
+
+        Ok(())
+    }
+
+    #[test]
+    fn create_list_tasks_command_with_dir() -> Result<(), String> {
+        let args = to_args(&["-d", "/tmp"]);
+
+        let command = ListTasks::new(&args)?;
+        assert_eq!(Path::new("/tmp"), command.dir);
+        assert_eq!(0, command.limit);
+
+        Ok(())
+    }
+
+    #[test]
+    fn create_list_tasks_command_with_too_many_args() -> Result<(), String> {
+        let args = to_args(&["10", "20"]);
+        check_parse_error(&ListTasks::new(&args), "too many arguments")
+    }
+}
