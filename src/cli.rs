@@ -162,13 +162,13 @@ impl Command for ListTasks {
 ///
 /// Each selected task is printed to stdout in detail.
 #[derive(Debug)]
-pub struct ShowTask {
+pub struct ShowTasks {
     dir: PathBuf,
     ids: Vec<String>,
 }
 
-impl ShowTask {
-    pub fn new(args: &[String]) -> Result<ShowTask, String> {
+impl ShowTasks {
+    pub fn new(args: &[String]) -> Result<ShowTasks, String> {
         let mut options = Options::new();
 
         options.optopt("d", "dir", "base directory", "DIR");
@@ -185,14 +185,14 @@ impl ShowTask {
                     return Err(format!("missing task id(s)"))
                 }
 
-                Ok(ShowTask { dir, ids })
+                Ok(ShowTasks { dir, ids })
             },
             Err(reason) => Err(format!("{}", reason)),
         }
     }
 }
 
-impl Command for ShowTask {
+impl Command for ShowTasks {
     fn run(&self) -> Result<(), String> {
         if self.ids.len() == 1 {
             println!("Here is your task {:?}!", self.ids);

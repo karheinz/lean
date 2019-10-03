@@ -13,7 +13,7 @@ fn parse(args: &[String]) -> Result<Box<dyn Command>, String> {
     match command_str {
         Some("help") => Ok(Box::new(ShowHelp::new(&args[0], &args[2..])?)),
         Some("list") => Ok(Box::new(ListTasks::new(&args[2..])?)),
-        Some("show") => Ok(Box::new(ShowTask::new(&args[2..])?)),
+        Some("show") => Ok(Box::new(ShowTasks::new(&args[2..])?)),
         Some(unknown) => Err(format!("unknown command {}", unknown)),
         _ => Ok(Box::new(ShowUsage::new(&args[0])?)),
     }
