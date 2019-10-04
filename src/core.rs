@@ -32,7 +32,7 @@ pub enum Occurrence {
 /// The Task struct.
 ///
 /// Occurrence can be either OneTime or Periodic.
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all="snake_case")]
 pub struct Task {
     pub title: String,
@@ -114,6 +114,27 @@ mod tests {
             Ok(y) => println!("{}", y),
             Err(reason) => return Err(format!("{}", reason)),
         };
+
+        Ok(())
+    }
+
+    #[test]
+    fn deserialize_a_task() -> Result<(), String> {
+        let task_str = r#"---
+title: Title
+description: Description
+occurrence:
+  type: Periodic
+  recurrence:
+    monthly:
+      week: 3
+      day: Friday
+effort: []"#;
+
+        match serde_yaml::from_str::<Task>(task_str) {
+            Ok(task) => println!("task: {:?}", task),
+            Err(reason) => return Err(format!("{}", reason)),
+        }
 
         Ok(())
     }
