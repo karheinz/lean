@@ -40,6 +40,7 @@ pub struct Task {
     //tags: Vec<Tag>,
     pub occurrence: Occurrence,
     pub effort: Vec<f64>,
+    //done: f64,
     //created_at: Time,
     //required_at: Option<Time>,
     //relates_to: Vec<Task>,
@@ -123,6 +124,52 @@ mod tests {
         let task_str = r#"---
 title: Title
 description: Description
+occurrence:
+  type: Periodic
+  recurrence:
+    monthly:
+      week: 3
+      day: Friday
+effort: []"#;
+
+        match serde_yaml::from_str::<Task>(task_str) {
+            Ok(task) => println!("task: {:?}", task),
+            Err(reason) => return Err(format!("{}", reason)),
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn serialize_a_task_with_multiline_text() -> Result<(), String> {
+        let task = Task {
+            title: String::from("Heyho!\nLets go!"),
+            description: String::from("Two empty lines:\n\n\n"),
+            effort: vec![],
+            occurrence: Occurrence::Periodic { recurrence:
+                Recurrence::Monthly { week: 1, day: Weekday::Friday } },
+        };
+        match serde_yaml::to_string(&task) {
+            Ok(y) => println!("{}", y),
+            Err(reason) => return Err(format!("{}", reason)),
+        };
+
+        Ok(())
+    }
+
+    #[test]
+    fn deserialize_a_task_with_multiline_text() -> Result<(), String> {
+        let task_str = r#"---
+title: Title
+description: |
+  This
+  is a
+
+  multi
+
+  line
+
+  description.
 occurrence:
   type: Periodic
   recurrence:
