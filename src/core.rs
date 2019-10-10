@@ -1,17 +1,18 @@
+extern crate chrono;
 extern crate serde;
 
 use serde::{Serialize, Deserialize};
+use chrono::{DateTime, Local, Timelike, Weekday};
 
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub enum Weekday {
-    Monday,
-    Tuesday,
-    Wednesday,
-    Thursday,
-    Friday,
-    Saturday,
-    Sunday,
+/// Returns current DateTime<Local> with (nano)seconds set to zero.
+pub fn now_rounded() -> DateTime<Local> {
+    Local::now().with_second(0).unwrap().with_nanosecond(0).unwrap()
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Person {
+    pub name: String,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -37,20 +38,32 @@ pub enum Occurrence {
 pub struct Task {
     pub title: String,
     pub description: String,
-    //tags: Vec<Tag>,
+    //tags: Option<Vec<Tag>>,
     pub occurrence: Occurrence,
     pub effort: Vec<f64>,
-    //done: f64,
-    //created_at: Time,
-    //required_at: Option<Time>,
-    //relates_to: Vec<Task>,
-    //depends_on: Vec<Task>,
-    //started_at: Option<Time>,
-    //paused: bool,
-    //finished_at: Option<Time>,
-    //people: Vec<Person>,
-    //notes: Vec<Note>,
-    //attachments: Vec<Attachment>,
+    #[serde(default)]
+    pub done: f64,
+    pub created_at: DateTime<Local>,
+    #[serde(default)]
+    pub due_at: Option<DateTime<Local>>,
+    #[serde(default)]
+    pub relates_to: Option<Vec<Task>>,
+    #[serde(default)]
+    pub depends_on: Option<Vec<Task>>,
+    #[serde(default)]
+    pub started_at: Option<DateTime<Local>>,
+    #[serde(default)]
+    pub paused_at: Option<Vec<DateTime<Local>>>,
+    #[serde(default)]
+    pub resumed_at: Option<Vec<DateTime<Local>>>,
+    #[serde(default)]
+    pub finished_at: Option<DateTime<Local>>,
+    #[serde(default)]
+    pub cancelled_at: Option<DateTime<Local>>,
+    #[serde(default)]
+    pub people: Option<Vec<Person>>,
+    //pub notes: Option<Vec<Note>>,
+    //pub attachments: Option<Vec<Attachment>>,
 }
 
 impl Task {
@@ -73,14 +86,25 @@ mod tests {
         let mut task = Task {
             title: String::from("Title"),
             description: String::from("Description"),
-            effort: vec![],
+            created_at: Local::now(),
+            done: 0.0,
+            effort: vec![5.0],
             occurrence: Occurrence::Periodic {
-                recurrence: Recurrence::Weekly(Weekday::Monday) },
+                recurrence: Recurrence::Weekly(Weekday::Mon) },
+            due_at: None,
+            relates_to: None,
+            depends_on: None,
+            started_at: None,
+            paused_at: None,
+            resumed_at: None,
+            finished_at: None,
+            cancelled_at: None,
+            people: None,
         };
 
         assert_eq!("Title", task.title);
         assert_eq!("Description", task.description);
-        assert_eq!(0, task.effort.len());
+        assert_eq!(1, task.effort.len());
 
         assert!(task.is_valid());
         task.title.clear();
@@ -94,17 +118,22 @@ mod tests {
         let mut task = Task {
             title: String::from("Title"),
             description: String::from("Description"),
-            effort: vec![],
-            occurrence: Occurrence::Periodic { recurrence:
-                Recurrence::Monthly { week: 1, day: Weekday::Friday } },
-        };
-        match serde_yaml::to_string(&task) {
-            Ok(y) => println!("{}", y),
-            Err(reason) => return Err(format!("{}", reason)),
+            created_at: now_rounded(),
+            done: 0.0,
+            effort: vec![5.0],
+            occurrence: Occurrence::Periodic {
+                recurrence: Recurrence::Weekly(Weekday::Mon) },
+            due_at: None,
+            relates_to: None,
+            depends_on: None,
+            started_at: None,
+            paused_at: None,
+            resumed_at: None,
+            finished_at: None,
+            cancelled_at: None,
+            people: None,
         };
 
-        task.occurrence = Occurrence::Periodic { recurrence:
-            Recurrence::Weekly(Weekday::Monday) };
         match serde_yaml::to_string(&task) {
             Ok(y) => println!("{}", y),
             Err(reason) => return Err(format!("{}", reason)),
@@ -124,13 +153,14 @@ mod tests {
         let task_str = r#"---
 title: Title
 description: Description
+created_at: 2019-10-09T13:00:00+02:00
 occurrence:
   type: Periodic
   recurrence:
     monthly:
       week: 3
-      day: Friday
-effort: []"#;
+      day: Fri
+effort: [10.0]"#;
 
         match serde_yaml::from_str::<Task>(task_str) {
             Ok(task) => println!("task: {:?}", task),
@@ -143,12 +173,24 @@ effort: []"#;
     #[test]
     fn serialize_a_task_with_multiline_text() -> Result<(), String> {
         let task = Task {
-            title: String::from("Heyho!\nLets go!"),
-            description: String::from("Two empty lines:\n\n\n"),
-            effort: vec![],
-            occurrence: Occurrence::Periodic { recurrence:
-                Recurrence::Monthly { week: 1, day: Weekday::Friday } },
+            title: String::from("Title"),
+            description: String::from("Description"),
+            created_at: now_rounded(),
+            done: 0.0,
+            effort: vec![5.0],
+            occurrence: Occurrence::Periodic {
+                recurrence: Recurrence::Weekly(Weekday::Mon) },
+            due_at: None,
+            relates_to: None,
+            depends_on: None,
+            started_at: None,
+            paused_at: None,
+            resumed_at: None,
+            finished_at: None,
+            cancelled_at: None,
+            people: None,
         };
+
         match serde_yaml::to_string(&task) {
             Ok(y) => println!("{}", y),
             Err(reason) => return Err(format!("{}", reason)),
@@ -170,13 +212,14 @@ description: |
   line
 
   description.
+created_at: 2019-10-09T13:00:00+02:00
 occurrence:
   type: Periodic
   recurrence:
     monthly:
       week: 3
-      day: Friday
-effort: []"#;
+      day: Fri
+effort: [10.0]"#;
 
         match serde_yaml::from_str::<Task>(task_str) {
             Ok(task) => println!("task: {:?}", task),
