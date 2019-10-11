@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 use getopts::Options;
-use regex::Regex;
+use crate::core::{Task, Workspace};
 
 
 /// Checks if the passed path is a directory.
@@ -44,28 +44,6 @@ fn to_limit(string: Option<String>, radix: u32) -> Result<u32, String> {
         },
         _ => Ok(0),
     }
-}
-
-fn join_snake_case(args: &[String]) -> String {
-    let name = args.join("_");
-    let name = name.trim();
-    let re = Regex::new(r"\s+").unwrap();
-    let name = re.replace_all(&name, "_").to_string();
-    name.to_lowercase()
-}
-
-fn convert_to_ascii(string: &mut String) {
-    let mut tmp: String = String::from(&string[..]);
-
-    for tuple in [("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")].iter() {
-        let re = Regex::new(&format!("{}", tuple.0)).unwrap();
-        tmp = re.replace_all(&tmp, tuple.1).to_string();
-    }
-
-    let re = Regex::new(r"[^a-zA-z0-9_]").unwrap();
-    let tmp = re.replace_all(&tmp, "").to_string();
-    string.clear();
-    string.push_str(&tmp);
 }
 
 pub trait Command {
@@ -133,8 +111,8 @@ impl Command for ShowHelp {
 
 #[derive(Debug)]
 pub struct AddTask {
-    dir: PathBuf,
-    name: String,
+    workspace: Workspace,
+    task: Task,
 }
 
 impl AddTask {
@@ -157,10 +135,10 @@ impl AddTask {
                 let args = matches.free;
                 check_num_of(&args, 1, -1)?;
 
-                let mut name = join_snake_case(&args);
-                convert_to_ascii(&mut name);
+                let workspace = Workspace::new(dir.as_path());
+                let task = Task::new(&args);
 
-                Ok(AddTask { dir, name })
+                Ok(AddTask { workspace, task })
             },
             Err(reason) => Err(format!("{}", reason)),
         }
@@ -170,6 +148,8 @@ impl AddTask {
 impl Command for AddTask {
     fn run(&self) -> Result<(), String> {
         println!("Lets build a new task: {:?}", &self);
+        println!("path: {:?}", self.workspace.get_path(&self.task).as_path());
+
         Ok(())
     }
 }
@@ -348,10 +328,12 @@ mod tests {
 
     #[test]
     fn create_add_task_command() -> Result<(), String> {
-        let args = to_args(&[" MY fancy", "new   TASK"]);
+        let args = to_args(&[" Ääß Öö Üü MY fancy ", "new   _TASK ", " - "]);
         let command = AddTask::new(&args)?;
-        assert_eq!(Path::new("."), command.dir);
-        assert_eq!("my_fancy_new_task", command.name);
+        assert_eq!("Ääß Öö Üü MY fancy new _TASK -", command.task.title);
+        assert_eq!("aeaess_oeoe_ueue_my_fancy_new__task_-.yaml",
+                   command.workspace.get_path(&command.task)
+                   .as_path().to_str().unwrap());
 
         Ok(())
     }

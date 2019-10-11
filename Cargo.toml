@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 chrono = { version = "0.4", features = ["serde"] }
 getopts = "0.2"
+mktemp = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = { version = "0.8", git = "https://github.com/karheinz/serde-yaml/", branch = "feature/multiline" }
 regex = "1.3"
