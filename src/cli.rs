@@ -54,6 +54,20 @@ fn join_snake_case(args: &[String]) -> String {
     name.to_lowercase()
 }
 
+fn convert_to_ascii(string: &mut String) {
+    let mut tmp: String = String::from(&string[..]);
+
+    for tuple in [("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")].iter() {
+        let re = Regex::new(&format!("{}", tuple.0)).unwrap();
+        tmp = re.replace_all(&tmp, tuple.1).to_string();
+    }
+
+    let re = Regex::new(r"[^a-zA-z0-9_]").unwrap();
+    let tmp = re.replace_all(&tmp, "").to_string();
+    string.clear();
+    string.push_str(&tmp);
+}
+
 pub trait Command {
     // Runs the command.
     //
@@ -143,7 +157,8 @@ impl AddTask {
                 let args = matches.free;
                 check_num_of(&args, 1, -1)?;
 
-                let name = join_snake_case(&args);
+                let mut name = join_snake_case(&args);
+                convert_to_ascii(&mut name);
 
                 Ok(AddTask { dir, name })
             },
