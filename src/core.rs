@@ -1,8 +1,41 @@
 use chrono::{DateTime, Local, Timelike, Weekday};
 use regex::Regex;
 use serde::{Serialize, Deserialize};
+use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 
+
+pub fn normalize(name: &str) -> String {
+    let name = name.trim();
+    let re = Regex::new(r"\s+").unwrap();
+    re.replace_all(&name, " ").to_string()
+}
+
+pub fn to_snake_case(name: &str) -> String {
+    let re = Regex::new(r"\s+").unwrap();
+    let name = re.replace_all(&name, "_").to_string();
+    to_ascii(&name.to_lowercase())
+}
+
+pub fn to_ascii(name: &String) -> String {
+    let mut tmp: String = String::from(&name[..]);
+
+    for i in [0, 1].iter() {
+        for tuple in [("Ä", "Ae"), ("Ö", "Oe"), ("Ü", "Ue"), ("ß", "ss")].iter() {
+            let (from, to) = match i % 2 {
+                0 => (tuple.0.to_string(), tuple.1.to_string()),
+                _ => (tuple.0.to_lowercase(), tuple.1.to_lowercase()),
+            };
+            let re = Regex::new(&format!("{}", &from)).unwrap();
+            tmp = re.replace_all(&tmp, &to[..]).to_string();
+        }
+    }
+
+    let re = Regex::new(r"[^a-zA-z0-9_-]").unwrap();
+    tmp = re.replace_all(&tmp, "").to_string();
+    let re = Regex::new(r"__+").unwrap();
+    re.replace_all(&tmp, "_").to_string()
+}
 
 /// Returns current DateTime<Local> with (nano)seconds set to zero.
 pub fn now_rounded() -> DateTime<Local> {
@@ -66,11 +99,11 @@ pub struct Task {
 }
 
 impl Task {
-    pub fn new(args: &[String]) -> Task {
+    pub fn new(args: &[String]) -> Result<Task, String> {
         let title = args.join(" ");
 
-        Task {
-            title: Self::normalize(&title),
+        let task = Task {
+            title: normalize(&title),
             description: String::new(),
             created_at: now_rounded(),
             done: 0.0,
@@ -85,13 +118,13 @@ impl Task {
             finished_at: None,
             cancelled_at: None,
             people: None,
-        }
-    }
+        };
 
-    fn normalize(name: &str) -> String {
-        let name = name.trim();
-        let re = Regex::new(r"\s+").unwrap();
-        re.replace_all(&name, " ").to_string()
+        if task.is_valid() {
+            Ok(task)
+        } else {
+            Err(format!("task is invalid"))
+        }
     }
 
     pub fn is_valid(&self) -> bool {
@@ -100,35 +133,51 @@ impl Task {
 
     fn is_invalid(&self) -> bool {
         self.title.is_empty() ||
-        self.description.is_empty()
+        to_snake_case(&self.title).is_empty()
     }
 }
 
 #[derive(Debug)]
 pub struct Workspace {
-    basedir: PathBuf,
+    pub base_dir: PathBuf,
 }
 
 impl Workspace {
-    pub fn new(path: &Path) -> Workspace {
-        let basedir = PathBuf::from(path);
-        Workspace { basedir }
-    }
+    pub fn new(path: &Path) -> Result<Workspace, String> {
+        let path = match fs::canonicalize(path) {
+            Ok(full) => full,
+            Err(reason) => return Err(format!("{}", reason)),
+        };
 
-    pub fn locate(path: &Path) -> Workspace {
-        let basedir = PathBuf::from(path);
-        Workspace { basedir }
+        match Self::lookup_base_dir(&path) {
+            Ok(base_dir) => Ok(Workspace { base_dir }),
+            Err(_) => {
+                match File::create(&path.join(".lean.yaml")) {
+                    Ok(_) => Ok(Workspace { base_dir: path }),
+                    Err(reason) => Err(format!("{:?}", reason)),
+                }
+            },
+        }
     }
 
     pub fn add_task(&self, _task: &Task) {
     }
 
     pub fn get_path(&self, task: &Task) -> PathBuf {
-        PathBuf::from(format!("{}{}", &Self::to_snake_case(&task.title), ".yaml"))
+        self.base_dir.join(PathBuf::from(
+                format!("{}{}", to_snake_case(&task.title), ".yaml")))
+    }
+
+    pub fn get_file_name(&self, task: &Task) -> PathBuf {
+        PathBuf::from(self.get_path(&task).file_name().unwrap())
     }
 
     /// Looks for (parent) dir which contains .lean.yaml and common dirs.
-    fn locate_base_dir(path: &Path) -> Result<PathBuf, String> {
+    fn lookup_base_dir(path: &Path) -> Result<PathBuf, String> {
+        if !path.is_absolute() {
+            return Err(format!("absolute path required for lookup"));
+        }
+
         let mut current = Some(path);
         let mut hit = false;
 
@@ -139,7 +188,11 @@ impl Workspace {
                         hit = true;
                         Some(p)
                     } else {
-                        p.parent()
+                        if let Some(_) = p.parent() {
+                            p.parent()
+                        } else {
+                            None
+                        }
                     }
                 },
                 _ => None,
@@ -156,29 +209,6 @@ impl Workspace {
         }
     }
 
-    fn to_snake_case(name: &str) -> String {
-        let re = Regex::new(r"\s+").unwrap();
-        let name = re.replace_all(&name, "_").to_string();
-        Self::to_ascii(&name.to_lowercase())
-    }
-
-    fn to_ascii(name: &String) -> String {
-        let mut tmp: String = String::from(&name[..]);
-
-        for i in [0, 1].iter() {
-            for tuple in [("Ä", "Ae"), ("Ö", "Oe"), ("Ü", "Ue"), ("ß", "ss")].iter() {
-                let (from, to) = match i % 2 {
-                    0 => (tuple.0.to_string(), tuple.1.to_string()),
-                    _ => (tuple.0.to_lowercase(), tuple.1.to_lowercase()),
-                };
-                let re = Regex::new(&format!("{}", &from)).unwrap();
-                tmp = re.replace_all(&tmp, &to[..]).to_string();
-            }
-        }
-
-        let re = Regex::new(r"[^a-zA-z0-9_-]").unwrap();
-        re.replace_all(&tmp, "").to_string()
-    }
 }
 
 #[cfg(test)]
@@ -336,9 +366,9 @@ effort: [10.0]"#;
     }
 
     #[test]
-    fn locate_base_dir() -> Result<(), String> {
+    fn lookup_base_dir() -> Result<(), String> {
         let missing = PathBuf::from("/no/lean/workspace");
-        if let Ok(_) = Workspace::locate_base_dir(missing.as_path()) {
+        if let Ok(_) = Workspace::lookup_base_dir(missing.as_path()) {
             return Err(format!("Error!"))
         }
 
@@ -361,11 +391,11 @@ effort: [10.0]"#;
             return Err(format!("{:?}", reason));
         }
 
-        match Workspace::locate_base_dir(&tmp_dir_a_b_c.as_path()) {
+        match Workspace::lookup_base_dir(&tmp_dir_a_b_c.as_path()) {
             Ok(path) => assert_eq!(tmp_dir.to_path_buf(), path),
             Err(reason) => return Err(reason),
         };
-        match Workspace::locate_base_dir(&tmp_dir.as_path()) {
+        match Workspace::lookup_base_dir(&tmp_dir.as_path()) {
             Ok(path) => assert_eq!(tmp_dir.to_path_buf(), path),
             Err(reason) => return Err(reason),
         };

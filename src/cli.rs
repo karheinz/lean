@@ -135,8 +135,8 @@ impl AddTask {
                 let args = matches.free;
                 check_num_of(&args, 1, -1)?;
 
-                let workspace = Workspace::new(dir.as_path());
-                let task = Task::new(&args);
+                let workspace = Workspace::new(dir.as_path())?;
+                let task = Task::new(&args)?;
 
                 Ok(AddTask { workspace, task })
             },
@@ -331,8 +331,8 @@ mod tests {
         let args = to_args(&[" Ääß Öö Üü MY fancy ", "new   _TASK ", " - "]);
         let command = AddTask::new(&args)?;
         assert_eq!("Ääß Öö Üü MY fancy new _TASK -", command.task.title);
-        assert_eq!("aeaess_oeoe_ueue_my_fancy_new__task_-.yaml",
-                   command.workspace.get_path(&command.task)
+        assert_eq!("aeaess_oeoe_ueue_my_fancy_new_task_-.yaml",
+                   command.workspace.get_file_name(&command.task)
                    .as_path().to_str().unwrap());
 
         Ok(())
