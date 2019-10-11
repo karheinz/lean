@@ -1,7 +1,6 @@
-extern crate getopts;
-
 use std::path::{Path, PathBuf};
 use getopts::Options;
+use regex::Regex;
 
 
 /// Checks if the passed path is a directory.
@@ -45,6 +44,14 @@ fn to_limit(string: Option<String>, radix: u32) -> Result<u32, String> {
         },
         _ => Ok(0),
     }
+}
+
+fn join_snake_case(args: &[String]) -> String {
+    let name = args.join("_");
+    let name = name.trim();
+    let re = Regex::new(r"\s+").unwrap();
+    let name = re.replace_all(&name, "_").to_string();
+    name.to_lowercase()
 }
 
 pub trait Command {
@@ -106,6 +113,48 @@ impl ShowHelp {
 impl Command for ShowHelp {
     fn run(&self) -> Result<(), String> {
         println!("Help for {} is comming soon ...", self.program);
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct AddTask {
+    dir: PathBuf,
+    name: String,
+}
+
+impl AddTask {
+    /// Constructs a new AddTask object.
+    ///
+    /// Considers the passed command line arguments.
+    /// Returns either Ok(object: AddTask) or Err(reason: String).
+    pub fn new(args: &[String]) -> Result<AddTask, String> {
+        let mut options = Options::new();
+
+        options.optopt("d", "dir", "base directory", "DIR");
+        match options.parse(&args[..]) {
+            Ok(matches) => {
+                let mut dir = PathBuf::from(".");
+                if let Some(d) = matches.opt_str("dir") {
+                    dir = PathBuf::from(d);
+                }
+                is_dir(dir.as_path())?;
+
+                let args = matches.free;
+                check_num_of(&args, 1, -1)?;
+
+                let name = join_snake_case(&args);
+
+                Ok(AddTask { dir, name })
+            },
+            Err(reason) => Err(format!("{}", reason)),
+        }
+    }
+}
+
+impl Command for AddTask {
+    fn run(&self) -> Result<(), String> {
+        println!("Lets build a new task: {:?}", &self);
         Ok(())
     }
 }
@@ -281,4 +330,15 @@ mod tests {
         let args = to_args(&["10", "20"]);
         check_parse_error(&ListTasks::new(&args), "too many arguments")
     }
+
+    #[test]
+    fn create_add_task_command() -> Result<(), String> {
+        let args = to_args(&[" MY fancy", "new   TASK"]);
+        let command = AddTask::new(&args)?;
+        assert_eq!(Path::new("."), command.dir);
+        assert_eq!("my_fancy_new_task", command.name);
+
+        Ok(())
+    }
+
 }
