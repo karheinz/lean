@@ -19,14 +19,16 @@ fn is_dir(path: &Path) -> Result<(), String> {
 /// against a minimum and maximum value.
 ///
 /// Returns either Ok(()) or Err(reason: String).
-fn check_num_of(elems: &[String], min: u32, max: u32) -> Result<(), String> {
-    assert!(min <= max);
+fn check_num_of(elems: &[String], min: u32, max: i32) -> Result<(), String> {
+    if max >= 0 {
+        assert!(min <= max as u32)
+    }
 
     let count: u32 = elems.len() as u32;
 
     if count < min {
         Err(format!("too few arguments"))
-    } else if count > max {
+    } else if max >= 0 && count > max as u32 {
         Err(format!("too many arguments"))
     } else {
         Ok(())
