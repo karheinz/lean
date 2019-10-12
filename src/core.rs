@@ -143,6 +143,11 @@ pub struct Workspace {
 }
 
 impl Workspace {
+    const CONFIG_FILE: &'static str = ".lean.yaml";
+
+    /// Returns a Workspace object for an already existing
+    /// workspace the passed dir is part of.  An error is
+    /// returned if the passed path is not part of a workspace.
     pub fn new(path: &Path) -> Result<Workspace, String> {
         let path = match fs::canonicalize(path) {
             Ok(full) => full,
@@ -151,8 +156,23 @@ impl Workspace {
 
         match Self::lookup_base_dir(&path) {
             Ok(base_dir) => Ok(Workspace { base_dir }),
+            Err(reason) => Err(reason),
+        }
+    }
+
+    /// Returns a Workspace object for a freshly created workspace
+    /// in the passed directory. An error is returned if the passed
+    /// directory is already part of a workspace.
+    pub fn create(path: &Path) -> Result<Workspace, String> {
+        let path = match fs::canonicalize(path) {
+            Ok(full) => full,
+            Err(reason) => return Err(format!("{}", reason)),
+        };
+
+        match Self::lookup_base_dir(&path) {
+            Ok(_) => Err(format!("directory is already (part of) a workspace")),
             Err(_) => {
-                match File::create(&path.join(".lean.yaml")) {
+                match File::create(&path.join(Workspace::CONFIG_FILE)) {
                     Ok(_) => Ok(Workspace { base_dir: path }),
                     Err(reason) => Err(format!("{:?}", reason)),
                 }
@@ -172,10 +192,10 @@ impl Workspace {
         PathBuf::from(self.get_path(&task).file_name().unwrap())
     }
 
-    /// Looks for (parent) dir which contains .lean.yaml and common dirs.
+    /// Looks for (parent) dir which contains CONFIG_FILE (and common dirs).
     fn lookup_base_dir(path: &Path) -> Result<PathBuf, String> {
         if !path.is_absolute() {
-            return Err(format!("absolute path required for lookup"));
+            return Err(format!("absolute path required for base dir lookup"));
         }
 
         let mut current = Some(path);
@@ -184,7 +204,7 @@ impl Workspace {
         loop {
             current = match current {
                 Some(p) => {
-                    if p.to_path_buf().join(".lean.yaml").is_file() {
+                    if p.to_path_buf().join(Workspace::CONFIG_FILE).is_file() {
                         hit = true;
                         Some(p)
                     } else {
@@ -205,7 +225,7 @@ impl Workspace {
 
         match current {
             Some(p) => Ok(p.to_path_buf()),
-            None => Err(format!("lean base dir for {:?} not found", path)),
+            None => Err(format!("workspace base dir not found")),
         }
     }
 
@@ -365,6 +385,25 @@ effort: [10.0]"#;
         Ok(())
     }
 
+    fn prepare_temp_dir() -> Result<(), String> {
+        let tmp_dir: PathBuf = match Temp::new_path().release().parent() {
+            Some(parent) => parent.to_path_buf(),
+            None => PathBuf::from("."),
+        };
+
+        if tmp_dir.is_absolute() {
+            let config_file = tmp_dir.join(Workspace::CONFIG_FILE);
+
+            if config_file.is_file() {
+                if let Err(reason) = fs::remove_file(config_file) {
+                    return Err(format!("{:?}", reason));
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     #[test]
     fn lookup_base_dir() -> Result<(), String> {
         let missing = PathBuf::from("/no/lean/workspace");
@@ -379,7 +418,8 @@ effort: [10.0]"#;
 
         assert!(tmp_dir.as_path().is_dir());
 
-        let tmp_dir_a_b_c = tmp_dir.to_path_buf().join("a").join("b").join("c");
+        let tmp_dir_a_b_c = tmp_dir.to_path_buf()
+                                   .join("a").join("b").join("c");
         let mut builder = DirBuilder::new();
         builder.recursive(true);
 
@@ -387,7 +427,8 @@ effort: [10.0]"#;
             return Err(format!("{:?}", reason));
         }
 
-        if let Err(reason) = File::create(&tmp_dir.join(".lean.yaml")) {
+        if let Err(reason) = File::create(&tmp_dir
+                                          .join(Workspace::CONFIG_FILE)) {
             return Err(format!("{:?}", reason));
         }
 
@@ -399,6 +440,28 @@ effort: [10.0]"#;
             Ok(path) => assert_eq!(tmp_dir.to_path_buf(), path),
             Err(reason) => return Err(reason),
         };
+
+        Ok(())
+    }
+
+    #[test]
+    fn create_workspace() -> Result<(), String> {
+        prepare_temp_dir()?;
+
+        let tmp_dir: Temp = match Temp::new_dir() {
+            Ok(dir) => dir,
+            Err(reason) => return Err(format!("{:?}", reason)),
+        };
+
+        assert!(tmp_dir.as_path().is_dir());
+        assert!(!tmp_dir.join(Workspace::CONFIG_FILE).is_file());
+        if let Ok(_) = Workspace::new(tmp_dir.as_path()) {
+            return Err(format!("object for non existing workspace created"));
+        }
+
+        Workspace::create(tmp_dir.as_path())?;
+        assert!(tmp_dir.join(Workspace::CONFIG_FILE).is_file());
+        Workspace::new(tmp_dir.as_path())?;
 
         Ok(())
     }
