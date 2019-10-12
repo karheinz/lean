@@ -150,6 +150,10 @@ impl Workspace {
     /// to contain or has to be part of a workspace.
     /// An error is returned if this is not the case.
     pub fn new(path: &Path) -> Result<Workspace, String> {
+        if !path.is_dir() {
+            return Err(format!("{:?} is no directory", path));
+        }
+
         let path = match fs::canonicalize(path) {
             Ok(full) => full,
             Err(reason) => return Err(format!("{}", reason)),
@@ -165,6 +169,16 @@ impl Workspace {
     /// in the passed directory. An error is returned if the passed
     /// directory contains or is already part of a workspace.
     pub fn create(path: &Path) -> Result<Workspace, String> {
+        if !path.exists() {
+            if let Err(reason) = fs::create_dir_all(&path) {
+                return Err(format!("{:?}", reason));
+            }
+        }
+
+        if !path.is_dir() {
+            return Err(format!("{:?} is no directory", path));
+        }
+
         let path = match fs::canonicalize(path) {
             Ok(full) => full,
             Err(reason) => return Err(format!("{}", reason)),
