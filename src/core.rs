@@ -145,9 +145,10 @@ pub struct Workspace {
 impl Workspace {
     const CONFIG_FILE: &'static str = ".lean.yaml";
 
-    /// Returns a Workspace object for an already existing
-    /// workspace the passed dir is part of.  An error is
-    /// returned if the passed path is not part of a workspace.
+    /// Returns a Workspace object for an already
+    /// existing workspace. The passed directory has
+    /// to contain or has to be part of a workspace.
+    /// An error is returned if this is not the case.
     pub fn new(path: &Path) -> Result<Workspace, String> {
         let path = match fs::canonicalize(path) {
             Ok(full) => full,
@@ -162,7 +163,7 @@ impl Workspace {
 
     /// Returns a Workspace object for a freshly created workspace
     /// in the passed directory. An error is returned if the passed
-    /// directory is already part of a workspace.
+    /// directory contains or is already part of a workspace.
     pub fn create(path: &Path) -> Result<Workspace, String> {
         let path = match fs::canonicalize(path) {
             Ok(full) => full,
