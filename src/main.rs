@@ -1,5 +1,5 @@
-use std::env;
 use lean::cli::*;
+use std::env;
 
 
 fn parse(args: &[String]) -> Result<Box<dyn Command>, String> {

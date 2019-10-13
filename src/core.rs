@@ -143,7 +143,7 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    const CONFIG_FILE: &'static str = ".lean.yaml";
+    pub const CONFIG_FILE: &'static str = ".lean.yaml";
 
     /// Returns a Workspace object for an already
     /// existing workspace. The passed directory has
@@ -249,8 +249,10 @@ impl Workspace {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_helper;
     use mktemp::Temp;
     use std::fs::{File, DirBuilder};
+
 
     #[test]
     fn create_task() -> Result<(), String> {
@@ -400,27 +402,6 @@ effort: [10.0]"#;
         Ok(())
     }
 
-    /// Removes existing CONFIG_FILE from /tmp dir
-    /// to avoid (accidental) failed tests.
-    fn prepare_temp_dir() -> Result<(), String> {
-        let tmp_dir: PathBuf = match Temp::new_path().release().parent() {
-            Some(parent) => parent.to_path_buf(),
-            None => PathBuf::from("."),
-        };
-
-        if tmp_dir.is_absolute() {
-            let config_file = tmp_dir.join(Workspace::CONFIG_FILE);
-
-            if config_file.is_file() {
-                if let Err(reason) = fs::remove_file(config_file) {
-                    return Err(format!("{:?}", reason));
-                }
-            }
-        }
-
-        Ok(())
-    }
-
     #[test]
     fn lookup_base_dir() -> Result<(), String> {
         let missing = PathBuf::from("/no/lean/workspace");
@@ -463,7 +444,7 @@ effort: [10.0]"#;
 
     #[test]
     fn create_workspace() -> Result<(), String> {
-        prepare_temp_dir()?;
+        test_helper::prepare_temp_dir()?;
 
         let tmp_dir: Temp = match Temp::new_dir() {
             Ok(dir) => dir,

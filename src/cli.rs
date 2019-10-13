@@ -1,6 +1,6 @@
-use std::path::{Path, PathBuf};
-use getopts::Options;
 use crate::core::{Task, Workspace};
+use getopts::Options;
+use std::path::{Path, PathBuf};
 
 
 /// Checks if the passed path is a directory.
@@ -293,6 +293,9 @@ impl Command for ShowTasks {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_helper;
+    use mktemp::Temp;
+
 
     /// Converts an array of &str elems to a vector of String elems.
     ///
@@ -366,12 +369,20 @@ mod tests {
         check_parse_error(&ListTasks::new(&args), "too many arguments")
     }
 
-    // FIXME: Test is broken because a Workspace object needs
-    //        to be backed up by a real directory now!
     #[test]
-    #[ignore]
     fn create_add_task_command() -> Result<(), String> {
-        let args = to_args(&[" Ääß Öö Üü MY fancy ", "new   _TASK ", " - "]);
+        test_helper::prepare_temp_dir()?;
+
+        let tmp_dir: Temp = match Temp::new_dir() {
+            Ok(dir) => dir,
+            Err(reason) => return Err(format!("{:?}", reason)),
+        };
+        Workspace::create(tmp_dir.as_path())?;
+
+        let args = to_args(&["-d", &tmp_dir.as_path().to_str().unwrap(),
+                           " Ääß Öö Üü MY fancy ",
+                           "new   _TASK ", " - "]);
+
         let command = AddTask::new(&args)?;
         assert_eq!("Ääß Öö Üü MY fancy new _TASK -", command.task.title);
         assert_eq!("aeaess_oeoe_ueue_my_fancy_new_task_-.yaml",
