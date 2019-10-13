@@ -37,6 +37,66 @@ pub fn to_ascii(name: &String) -> String {
     re.replace_all(&tmp, "_").to_string()
 }
 
+/// Returns the deepest existing dir in path.
+/// At least / (root) is returned.
+fn get_deepest_existing_part_of(path: &Path) -> Result<PathBuf, String> {
+    let mut hit: Option<PathBuf> = Some(path.to_path_buf());
+
+    // Eeeaaasy!
+    if path.exists() {
+        if !path.is_dir() {
+            return Err(format!("{:?} is no directory", path));
+        }
+        if let Ok(full) = path.canonicalize() {
+            hit = Some(full);
+        }
+    // Lets go up step by step and try to resolve path.
+    } else {
+        let mut abort = false;
+        loop {
+            hit = match hit.unwrap().parent() {
+                Some(parent) => {
+                    // Use "." for an empty "" parent, example:
+                    //     ("")some/rel/path => (".")some/rel/path
+                    if let Some(parent_str) = parent.to_str() {
+                        if !parent_str.is_empty() {
+                            Some(parent.to_path_buf())
+                        } else {
+                            Some(PathBuf::from("."))
+                        }
+                    } else {
+                        None
+                    }
+                },
+                _ => None,
+            };
+
+            hit = match hit {
+                Some(partial) => {
+                    println!("check parent {:?}", partial);
+                    match partial.canonicalize() {
+                        Ok(full) => { abort = true; Some(full) },
+                        // Couldn't resolve path,
+                        // leave as is and continue.
+                        Err(_) => Some(partial),
+                    }
+                },
+                _ => None,
+            };
+
+            if abort {
+                break;
+            }
+            if let None = hit {
+                break;
+            }
+        }
+    }
+
+    // As / always exists we always have a hit!
+    Ok(hit.unwrap())
+}
+
 /// Returns current DateTime<Local> with (nano)seconds set to zero.
 pub fn now_rounded() -> DateTime<Local> {
     Local::now().with_second(0).unwrap().with_nanosecond(0).unwrap()
@@ -169,15 +229,14 @@ impl Workspace {
     /// in the passed directory. An error is returned if the passed
     /// directory contains or is already part of a workspace.
     pub fn create(path: &Path) -> Result<Workspace, String> {
-        let mut to_check: Option<&Path> = Some(path);
-        if !path.exists() {
-            to_check = path.parent();
+        let to_check = get_deepest_existing_part_of(path)?;
+
+        if !to_check.is_dir() {
+            return Err(format!("{:?} is no directory", to_check));
         }
 
-        if let Some(dir) = to_check {
-            if let Ok(_) = Self::lookup_base_dir(&dir) {
-                return Err(format!("directory is already (part of) a workspace"));
-            }
+        if let Ok(_) = Self::lookup_base_dir(&to_check) {
+            return Err(format!("directory is already (part of) a workspace"));
         }
 
         if let Err(reason) = fs::create_dir_all(&path) {
