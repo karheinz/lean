@@ -400,6 +400,8 @@ effort: [10.0]"#;
         Ok(())
     }
 
+    /// Removes existing CONFIG_FILE from /tmp dir
+    /// to avoid (accidental) failed tests.
     fn prepare_temp_dir() -> Result<(), String> {
         let tmp_dir: PathBuf = match Temp::new_path().release().parent() {
             Some(parent) => parent.to_path_buf(),
