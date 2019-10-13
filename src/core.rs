@@ -73,7 +73,6 @@ fn get_deepest_existing_part_of(path: &Path) -> Result<PathBuf, String> {
 
             hit = match hit {
                 Some(partial) => {
-                    println!("check parent {:?}", partial);
                     match partial.canonicalize() {
                         Ok(full) => { abort = true; Some(full) },
                         // Couldn't resolve path,
