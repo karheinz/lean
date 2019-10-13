@@ -248,6 +248,10 @@ impl Workspace {
             Err(reason) => return Err(format!("{}", reason)),
         };
 
+        if path.read_dir().unwrap().count() > 0 {
+            return Err(format!("directory is not empty"));
+        }
+
         match File::create(&path.join(Workspace::CONFIG_FILE)) {
             Ok(_) => Ok(Workspace { base_dir: path }),
             Err(reason) => Err(format!("{}", reason)),
