@@ -235,7 +235,11 @@ impl Workspace {
         }
 
         if let Ok(_) = Self::lookup_base_dir(&to_check) {
-            return Err(format!("directory is already (part of) a workspace"));
+            if path.exists() {
+                return Err(format!("directory is (part of) a workspace"));
+            } else {
+                return Err(format!("directory would be part of a workspace"));
+            }
         }
 
         if let Err(reason) = fs::create_dir_all(&path) {
