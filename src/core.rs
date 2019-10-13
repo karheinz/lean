@@ -407,7 +407,7 @@ effort: [10.0]"#;
 
         let tmp_dir: Temp = match Temp::new_dir() {
             Ok(dir) => dir,
-            Err(reason) => return Err(format!("{:?}", reason)),
+            Err(reason) => return Err(format!("{}", reason)),
         };
 
         assert!(tmp_dir.as_path().is_dir());
@@ -418,12 +418,12 @@ effort: [10.0]"#;
         builder.recursive(true);
 
         if let Err(reason) = builder.create(&tmp_dir_a_b_c) {
-            return Err(format!("{:?}", reason));
+            return Err(format!("{}", reason));
         }
 
         if let Err(reason) = File::create(&tmp_dir
                                           .join(Workspace::CONFIG_FILE)) {
-            return Err(format!("{:?}", reason));
+            return Err(format!("{}", reason));
         }
 
         match Workspace::lookup_base_dir(&tmp_dir_a_b_c.as_path()) {
@@ -444,7 +444,7 @@ effort: [10.0]"#;
 
         let tmp_dir: Temp = match Temp::new_dir() {
             Ok(dir) => dir,
-            Err(reason) => return Err(format!("{:?}", reason)),
+            Err(reason) => return Err(format!("{}", reason)),
         };
 
         assert!(tmp_dir.as_path().is_dir());

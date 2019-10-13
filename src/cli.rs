@@ -375,7 +375,7 @@ mod tests {
 
         let tmp_dir: Temp = match Temp::new_dir() {
             Ok(dir) => dir,
-            Err(reason) => return Err(format!("{:?}", reason)),
+            Err(reason) => return Err(format!("{}", reason)),
         };
         Workspace::create(tmp_dir.as_path())?;
 
