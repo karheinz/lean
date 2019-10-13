@@ -169,14 +169,19 @@ impl Workspace {
     /// in the passed directory. An error is returned if the passed
     /// directory contains or is already part of a workspace.
     pub fn create(path: &Path) -> Result<Workspace, String> {
+        let mut to_check: Option<&Path> = Some(path);
         if !path.exists() {
-            if let Err(reason) = fs::create_dir_all(&path) {
-                return Err(format!("{:?}", reason));
+            to_check = path.parent();
+        }
+
+        if let Some(dir) = to_check {
+            if let Ok(_) = Self::lookup_base_dir(&dir) {
+                return Err(format!("directory is already (part of) a workspace"));
             }
         }
 
-        if !path.is_dir() {
-            return Err(format!("{:?} is no directory", path));
+        if let Err(reason) = fs::create_dir_all(&path) {
+            return Err(format!("{}", reason));
         }
 
         let path = match fs::canonicalize(path) {
@@ -184,14 +189,9 @@ impl Workspace {
             Err(reason) => return Err(format!("{}", reason)),
         };
 
-        match Self::lookup_base_dir(&path) {
-            Ok(_) => Err(format!("directory is already (part of) a workspace")),
-            Err(_) => {
-                match File::create(&path.join(Workspace::CONFIG_FILE)) {
-                    Ok(_) => Ok(Workspace { base_dir: path }),
-                    Err(reason) => Err(format!("{:?}", reason)),
-                }
-            },
+        match File::create(&path.join(Workspace::CONFIG_FILE)) {
+            Ok(_) => Ok(Workspace { base_dir: path }),
+            Err(reason) => Err(format!("{}", reason)),
         }
     }
 
@@ -209,10 +209,6 @@ impl Workspace {
 
     /// Looks for (parent) dir which contains CONFIG_FILE (and common dirs).
     fn lookup_base_dir(path: &Path) -> Result<PathBuf, String> {
-        if !path.is_absolute() {
-            return Err(format!("absolute path required for base dir lookup"));
-        }
-
         let mut current = Some(path);
         let mut hit = false;
 
