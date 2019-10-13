@@ -154,7 +154,7 @@ impl Workspace {
             return Err(format!("{:?} is no directory", path));
         }
 
-        let path = match fs::canonicalize(path) {
+        let path = match path.canonicalize() {
             Ok(full) => full,
             Err(reason) => return Err(format!("{}", reason)),
         };
@@ -184,7 +184,7 @@ impl Workspace {
             return Err(format!("{}", reason));
         }
 
-        let path = match fs::canonicalize(path) {
+        let path = match path.canonicalize() {
             Ok(full) => full,
             Err(reason) => return Err(format!("{}", reason)),
         };
