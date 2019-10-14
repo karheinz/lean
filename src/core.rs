@@ -44,9 +44,6 @@ fn get_deepest_existing_part_of(path: &Path) -> Result<PathBuf, String> {
 
     // Eeeaaasy!
     if path.exists() {
-        if !path.is_dir() {
-            return Err(format!("{:?} is no directory", path));
-        }
         if let Ok(full) = path.canonicalize() {
             hit = Some(full);
         }
@@ -65,7 +62,7 @@ fn get_deepest_existing_part_of(path: &Path) -> Result<PathBuf, String> {
                             Some(PathBuf::from("."))
                         }
                     } else {
-                        None
+                        return Err(format!("malformed path encoding"));
                     }
                 },
                 _ => None,
@@ -74,9 +71,9 @@ fn get_deepest_existing_part_of(path: &Path) -> Result<PathBuf, String> {
             hit = match hit {
                 Some(partial) => {
                     match partial.canonicalize() {
+                        // Could resolve path: break!
                         Ok(full) => { abort = true; Some(full) },
-                        // Couldn't resolve path,
-                        // leave as is and continue.
+                        // Couldn't resolve path: continue!
                         Err(_) => Some(partial),
                     }
                 },
@@ -92,7 +89,8 @@ fn get_deepest_existing_part_of(path: &Path) -> Result<PathBuf, String> {
         }
     }
 
-    // As / always exists we always have a hit!
+    // As . and / always exists we always have a hit!
+    // The None cases above should never be reached.
     Ok(hit.unwrap())
 }
 
@@ -522,6 +520,16 @@ effort: [10.0]"#;
         Workspace::create(tmp_dir.as_path())?;
         assert!(tmp_dir.join(Workspace::CONFIG_FILE).is_file());
         Workspace::new(tmp_dir.as_path())?;
+
+        if let Err(reason) = fs::remove_file(tmp_dir.join(Workspace::CONFIG_FILE)) {
+            return Err(format!("{}", reason));
+        }
+        if let Err(reason) = fs::create_dir(tmp_dir.join("some_dir")) {
+            return Err(format!("{}", reason));
+        }
+        if let Ok(_) = Workspace::create(tmp_dir.as_path()) {
+            return Err(format!("workspace in non empty directory created"));
+        }
 
         Ok(())
     }

@@ -142,8 +142,11 @@ impl InitWorkspace {
 
 impl Command for InitWorkspace {
     fn run(&self) -> Result<(), String> {
-        match Workspace::create(&self.dir) {
-            Ok(_) => Ok(()),
+        match Workspace::create(self.dir.as_path()) {
+            Ok(_) => {
+                println!("Initialized workspace in {:?}", self.dir.as_path());
+                Ok(())
+            },
             Err(reason) => Err(reason),
         }
     }
