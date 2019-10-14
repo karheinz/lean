@@ -1,7 +1,7 @@
 use chrono::{DateTime, Local, Timelike, Weekday};
 use regex::Regex;
 use serde::{Serialize, Deserialize};
-use std::fs::{self, File};
+use std::fs::{self, DirBuilder, File};
 use std::path::{Path, PathBuf};
 
 
@@ -201,6 +201,8 @@ pub struct Workspace {
 
 impl Workspace {
     pub const CONFIG_FILE: &'static str = ".lean.yaml";
+    pub const SUB_DIRS: [&'static str; 8] = ["people", "tasks", "load", "record",
+        "views/month", "views/quarter", "views/half_year", "views/year"];
 
     /// Returns a Workspace object for an already
     /// existing workspace. The passed directory has
@@ -253,10 +255,21 @@ impl Workspace {
             return Err(format!("directory is not empty"));
         }
 
-        match File::create(&path.join(Workspace::CONFIG_FILE)) {
-            Ok(_) => Ok(Workspace { base_dir: path }),
-            Err(reason) => Err(format!("{}", reason)),
+        if let Err(reason) = File::create(&path.join(Workspace::CONFIG_FILE)) {
+            return Err(format!("{}", reason));
         }
+
+        let mut db = DirBuilder::new();
+        db.recursive(true);
+        for dir in Workspace::SUB_DIRS.iter() {
+            let mut to_create: PathBuf = path.to_path_buf();
+            dir.split("/").for_each(|d| { to_create = to_create.join(d); });
+            if let Err(reason) = db.create(to_create.as_path()) {
+                return Err(format!("{}", reason));
+            }
+        }
+
+        Ok(Workspace { base_dir: path })
     }
 
     pub fn add_task(&self, _task: &Task) {
@@ -311,7 +324,6 @@ mod tests {
     use super::*;
     use crate::test_helper;
     use mktemp::Temp;
-    use std::fs::{File, DirBuilder};
 
 
     #[test]
@@ -519,6 +531,13 @@ effort: [10.0]"#;
 
         Workspace::create(tmp_dir.as_path())?;
         assert!(tmp_dir.join(Workspace::CONFIG_FILE).is_file());
+
+        for dir in Workspace::SUB_DIRS.iter() {
+            let mut to_check: PathBuf = tmp_dir.to_path_buf();
+            dir.split("/").for_each(|d| { to_check = to_check.join(d); });
+            assert!(to_check.exists());
+        }
+
         Workspace::new(tmp_dir.as_path())?;
 
         if let Err(reason) = fs::remove_file(tmp_dir.join(Workspace::CONFIG_FILE)) {
