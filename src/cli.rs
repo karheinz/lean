@@ -174,15 +174,10 @@ impl AddTask {
 
                 let workspace = Workspace::new(PathBuf::from(".").as_path())?;
                 let task = Task::new();
-                let mut dir: Option<String> = None;
-
-                if let Some(d) = args.get(0) {
-                    if workspace.base_dir.join("tasks").join(d).is_dir() {
-                        dir = Some(String::from(d));
-                    } else {
-                        return Err(format!("directory not found"));
-                    }
-                }
+                let dir: Option<String> = match args.get(0) {
+                    Some(arg) => Some(String::from(arg)),
+                    _ => None,
+                };
 
                 Ok(AddTask { workspace, task, dir })
             },
