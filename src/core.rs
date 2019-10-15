@@ -156,11 +156,9 @@ pub struct Task {
 }
 
 impl Task {
-    pub fn new(args: &[String]) -> Result<Task, String> {
-        let title = args.join(" ");
-
+    pub fn new() -> Task {
         let task = Task {
-            title: normalize(&title),
+            title: String::new(),
             description: String::new(),
             created_at: now_rounded(),
             done: 0.0,
@@ -177,11 +175,7 @@ impl Task {
             people: None,
         };
 
-        if task.is_valid() {
-            Ok(task)
-        } else {
-            Err(format!("task is invalid"))
-        }
+        task
     }
 
     pub fn is_valid(&self) -> bool {
@@ -191,6 +185,10 @@ impl Task {
     fn is_invalid(&self) -> bool {
         self.title.is_empty() ||
         to_snake_case(&self.title).is_empty()
+    }
+
+    pub fn done_in_percent(&self) -> u8 {
+        (self.done * 100.0) as u8
     }
 }
 
@@ -275,13 +273,30 @@ impl Workspace {
     pub fn add_task(&self, _task: &Task) {
     }
 
-    pub fn get_path(&self, task: &Task) -> PathBuf {
-        self.base_dir.join(PathBuf::from(
-                format!("{}{}", to_snake_case(&task.title), ".yaml")))
+    pub fn get_path(&self, dir: &Option<String>, task: &Task) -> PathBuf {
+        let mut path = self.base_dir.join(PathBuf::from("tasks"));
+        if let Some(dir) = dir {
+            path = path.join(PathBuf::from(dir));
+        }
+        path.join(self.get_file_name(&task))
+    }
+
+    fn get_file_name_prefix(&self, task: &Task) -> String {
+        if let Some(time) = task.finished_at {
+            format!("X{:?}", time)
+        } else if let Some(_) = task.paused_at {
+            format!("{:03}S", task.done_in_percent())
+        } else if let Some(_) = task.started_at {
+            format!("{:03}P", task.done_in_percent())
+        } else {
+            format!("{:03}U", task.done_in_percent())
+        }
     }
 
     pub fn get_file_name(&self, task: &Task) -> PathBuf {
-        PathBuf::from(self.get_path(&task).file_name().unwrap())
+        PathBuf::from(format!("{}_{}.yaml",
+                              self.get_file_name_prefix(&task),
+                              to_snake_case(&task.title)))
     }
 
     /// Looks for (parent) dir which contains CONFIG_FILE (and common dirs).
