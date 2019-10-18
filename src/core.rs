@@ -313,9 +313,8 @@ impl Workspace {
 
     /// Calculates the path to the file which would hold the task.
     /// Returns an error if passed dir is resolved to be outside of the tasks directory.
+    /// The tasks directory can be inside a view though.
     pub fn calc_path(&self, dir: &String, task: &Task) -> Result<PathBuf, String> {
-        let base_path = self.base_dir.join(PathBuf::from("tasks"));
-
         let mut path = PathBuf::from(dir);
         if path.is_relative() {
             if let Ok(full) = PathBuf::from(".").canonicalize() {
@@ -324,11 +323,60 @@ impl Workspace {
         }
         let resolved = resolve(&path);
         let to_check = get_deepest_existing_part_of(&resolved)?;
-        if !to_check.starts_with(&base_path) || !to_check.is_dir() {
-            return Err(format!("dir is outside of tasks area"));
+
+        let tasks = self.base_dir.join(PathBuf::from("tasks"));
+        let source_hit = to_check.starts_with(&tasks) && to_check.is_dir();
+        let mut view_hit = false;
+        if !source_hit {
+            let views = self.base_dir.join(PathBuf::from("views"));
+            for entry in views.read_dir().expect("failed to read views") {
+                if let Ok(entry) = entry {
+                    if entry.path().is_dir() {
+                        let tasks = views.join(entry.path()).join(PathBuf::from("tasks"));
+                        view_hit = to_check.starts_with(&tasks) && to_check.is_dir();
+                        if view_hit {
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
-        Ok(resolved.join(self.get_file_name(&task)))
+        // Either we get a result or not.
+        let mut result: Option<PathBuf> = None;
+
+        if source_hit {
+            let r = resolved.join(self.get_file_name(&task));
+            if !r.exists() {
+                result = Some(r);
+            } else {
+                return Err(format!("{:?} already exists", r))
+            }
+        } else if view_hit {
+            // Translate view to source path!
+            let mut components = resolved.strip_prefix(&self.base_dir)
+                .expect("dir is not in workspace").components();
+            components.next();
+            components.next();
+
+            let r = self.base_dir.join(components.as_path()).join(self.get_file_name(&task));
+            let result_dir = r.parent().unwrap();
+            let to_check = get_deepest_existing_part_of(&result_dir)?;
+
+            if !to_check.is_dir() {
+                return Err(format!("{:?} is no dir", to_check));
+            } else if r.exists() {
+                return Err(format!("{:?} already exists", r));
+            } else {
+                result = Some(r)
+            }
+        }
+
+        if let Some(result) = result {
+            Ok(result)
+        } else {
+            Err(format!("dir is outside of tasks area"))
+        }
     }
 
     fn get_file_name_prefix(&self, task: &Task) -> String {
