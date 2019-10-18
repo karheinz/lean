@@ -37,6 +37,43 @@ pub fn to_ascii(name: &String) -> String {
     re.replace_all(&tmp, "_").to_string()
 }
 
+/// Returns the passed absolute path with all . and .. resolved.
+///
+/// Panics if the path is relative or malformed.
+///
+/// A slash (/) is used as file separator,
+/// so this function will not work on Windows.
+fn resolve(path: &Path) -> PathBuf {
+    if path.is_relative() {
+        panic!("can not resolve relative path")
+    }
+
+    if let Some(path_as_str) = path.to_str() {
+        let mut parts: Vec<&str> = Vec::new();
+        let mut iter = path_as_str.split("/");
+        loop {
+            match iter.next() {
+                Some("") => (),
+                Some(".") => (),
+                Some("..") => {
+                    parts.pop();
+                    ()
+                },
+                Some(part) => {
+                    parts.push(part);
+                    ()
+                },
+                None => break,
+            };
+        }
+
+        PathBuf::from(format!("/{}", parts.join("/")))
+
+    } else {
+        panic!("got malformed path");
+    }
+}
+
 /// Returns the deepest existing dir in path.
 /// At least / (root) is returned.
 fn get_deepest_existing_part_of(path: &Path) -> Result<PathBuf, String> {
@@ -226,7 +263,8 @@ impl Workspace {
     /// in the passed directory. An error is returned if the passed
     /// directory contains or is already part of a workspace.
     pub fn create(path: &Path) -> Result<Workspace, String> {
-        let to_check = get_deepest_existing_part_of(path)?;
+        let resolved = resolve(path);
+        let to_check = get_deepest_existing_part_of(&resolved)?;
 
         if !to_check.is_dir() {
             return Err(format!("{:?} is no directory", to_check));
@@ -273,12 +311,24 @@ impl Workspace {
     pub fn add_task(&self, _task: &Task) {
     }
 
-    pub fn get_path(&self, dir: &Option<String>, task: &Task) -> PathBuf {
-        let mut path = self.base_dir.join(PathBuf::from("tasks"));
-        if let Some(dir) = dir {
-            path = path.join(PathBuf::from(dir));
+    /// Calculates the path to the file which would hold the task.
+    /// Returns an error if passed dir is resolved to be outside of the tasks directory.
+    pub fn calc_path(&self, dir: &String, task: &Task) -> Result<PathBuf, String> {
+        let base_path = self.base_dir.join(PathBuf::from("tasks"));
+
+        let mut path = PathBuf::from(dir);
+        if path.is_relative() {
+            if let Ok(full) = PathBuf::from(".").canonicalize() {
+                path = full.join(path);
+            }
         }
-        path.join(self.get_file_name(&task))
+        let resolved = resolve(&path);
+        let to_check = get_deepest_existing_part_of(&resolved)?;
+        if !to_check.starts_with(&base_path) || !to_check.is_dir() {
+            return Err(format!("dir is outside of tasks area"));
+        }
+
+        Ok(resolved.join(self.get_file_name(&task)))
     }
 
     fn get_file_name_prefix(&self, task: &Task) -> String {

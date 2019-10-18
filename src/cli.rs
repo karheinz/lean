@@ -156,7 +156,7 @@ impl Command for InitWorkspace {
 pub struct AddTask {
     workspace: Workspace,
     task: Task,
-    dir: Option<String>,
+    dir: String,
 }
 
 impl AddTask {
@@ -174,9 +174,9 @@ impl AddTask {
 
                 let workspace = Workspace::new(PathBuf::from(".").as_path())?;
                 let task = Task::new();
-                let dir: Option<String> = match args.get(0) {
-                    Some(arg) => Some(String::from(arg)),
-                    _ => None,
+                let dir = match args.get(0) {
+                    Some(arg) => String::from(arg),
+                    _ => String::from("."),
                 };
 
                 Ok(AddTask { workspace, task, dir })
@@ -189,7 +189,7 @@ impl AddTask {
 impl Command for AddTask {
     fn run(&self) -> Result<(), String> {
         println!("Lets build a new task: {:?}", &self);
-        println!("path: {:?}", self.workspace.get_path(&self.dir, &self.task).as_path());
+        println!("path: {:?}", self.workspace.calc_path(&self.dir, &self.task)?.as_path());
 
         Ok(())
     }
@@ -387,9 +387,7 @@ mod tests {
 
         let command = AddTask::new(&[])?;
         assert!(command.task.title.is_empty());
-        if let Some(_) = command.dir {
-            return Err(format!("dir is not empty"))
-        }
+        assert_eq!(".", command.dir);
 
         Ok(())
     }
