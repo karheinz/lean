@@ -114,7 +114,7 @@ pushd ${DIR}/sample_data/
 for F in $(find ./people -type f); do
     PREFIX=$(calc_prefix $F people)
     L=${F/*\/people/}
-    D=load/${L%.yaml}
+    D=loads/${L%.yaml}
     if [[ -n "$D" ]]; then mkdir -p $D; fi
     for F2 in $(find ./tasks -not -name "X2019*" -type f); do
         PREFIX2=$(calc_prefix $F2 tasks)
@@ -132,7 +132,7 @@ done
 for F in $(find ./people -type f); do
     PREFIX=$(calc_prefix $F people)
     L=${F/*\/people/}
-    D=record/${L%.yaml}
+    D=track_records/${L%.yaml}
     if [[ -n "$D" ]]; then mkdir -p $D; fi
     for F2 in $(find ./tasks -name "X2019*" -type f); do
         PREFIX2=$(calc_prefix $F2 tasks)
@@ -154,7 +154,7 @@ mkdir -p $QUARTER
 find $VIEWS -type l -delete
 pushd ${QUARTER}
 
-# People (not needed, see load/record)
+# People (not needed, see loads/track_records)
 #for F in $(find ../../people -type f); do
 #    PREFIX=$(calc_prefix $F people)
 #    if (( $RANDOM % 3 != 0 )); then
@@ -182,7 +182,7 @@ done
 for F in $(find ../../people -type f); do
     PREFIX=$(calc_prefix $F people)
     L=${F/*\/..\/people/}
-    D=load${L%.yaml}
+    D=loads${L%.yaml}
     if [[ -n "$D" ]]; then mkdir -p $D; fi
     for F2 in $(find ../../tasks -not -name "X2019*" -type f); do
         PREFIX2=$(calc_prefix $F2 tasks)
@@ -200,7 +200,7 @@ done
 for F in $(find ../../people -type f); do
     PREFIX=$(calc_prefix $F people)
     L=${F/*\/..\/people/}
-    D=record${L%.yaml}
+    D=track_records${L%.yaml}
     if [[ -n "$D" ]]; then mkdir -p $D; fi
     for F2 in $(find ../../tasks -name "X2019*" -type f); do
         PREFIX2=$(calc_prefix $F2 tasks)
