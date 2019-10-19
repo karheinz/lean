@@ -12,6 +12,7 @@ pub fn normalize(name: &str) -> String {
 }
 
 pub fn to_snake_case(name: &str) -> String {
+    let name = name.trim();
     let re = Regex::new(r"\s+").unwrap();
     let name = re.replace_all(&name, "_").to_string();
     to_ascii(&name.to_lowercase())

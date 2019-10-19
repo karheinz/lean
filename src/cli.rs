@@ -1,5 +1,6 @@
 use crate::core::{Task, Workspace};
 use getopts::Options;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 
@@ -155,7 +156,6 @@ impl Command for InitWorkspace {
 #[derive(Debug)]
 pub struct AddTask {
     workspace: Workspace,
-    task: Task,
     dir: String,
 }
 
@@ -173,13 +173,12 @@ impl AddTask {
                 check_num_of(&args, 0, 1)?;
 
                 let workspace = Workspace::new(PathBuf::from(".").as_path())?;
-                let task = Task::new();
                 let dir = match args.get(0) {
                     Some(arg) => String::from(arg),
                     _ => String::from("."),
                 };
 
-                Ok(AddTask { workspace, task, dir })
+                Ok(AddTask { workspace, dir })
             },
             Err(reason) => Err(format!("{}", reason)),
         }
@@ -188,8 +187,15 @@ impl AddTask {
 
 impl Command for AddTask {
     fn run(&self) -> Result<(), String> {
-        println!("Lets build a new task: {:?}", &self);
-        println!("path: {:?}", self.workspace.calc_path(&self.dir, &self.task)?.as_path());
+        print!("Title: ");
+        io::stdout().flush().expect("failed to flush stdout buffer");
+        let mut title = String::new();
+        io::stdin().read_line(&mut title).expect("could not read from stdin");
+
+        let mut task = Task::new();
+        task.title = title;
+
+        println!("path: {:?}", self.workspace.calc_path(&self.dir, &task)?.as_path());
 
         Ok(())
     }
@@ -386,7 +392,7 @@ mod tests {
         }
 
         let command = AddTask::new(&[])?;
-        assert!(command.task.title.is_empty());
+        assert_eq!(tmp_dir.as_path(), command.workspace.base_dir);
         assert_eq!(".", command.dir);
 
         Ok(())
