@@ -1,7 +1,11 @@
 use crate::core::{Task, Workspace};
 use getopts::Options;
+use mktemp::Temp;
+use std::env;
+use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::process::Command as Process;
 
 
 /// Checks if the passed path is a directory.
@@ -44,6 +48,27 @@ fn to_limit(string: Option<String>, radix: u32) -> Result<u32, String> {
             }
         },
         _ => Ok(0),
+    }
+}
+
+fn ask_yes_no_question(question: &str, default: bool) -> Result<bool, ()> {
+    let mut suggestion = format!("[Yn]");
+    if default == false {
+        suggestion = format!("[yN]");
+    }
+
+    print!("{} {}   ", question, suggestion);
+    io::stdout().flush()
+        .expect("failed to flush stdout buffer");
+    let mut answer = String::new();
+    io::stdin().read_line(&mut answer)
+        .expect("could not read from stdin");
+    if answer.trim().to_lowercase() == "y" {
+        Ok(true)
+    } else if answer.trim().to_lowercase() == "n" {
+        Ok(false)
+    } else {
+        Err(())
     }
 }
 
@@ -187,15 +212,67 @@ impl AddTask {
 
 impl Command for AddTask {
     fn run(&self) -> Result<(), String> {
-        print!("Title: ");
-        io::stdout().flush().expect("failed to flush stdout buffer");
-        let mut title = String::new();
-        io::stdin().read_line(&mut title).expect("could not read from stdin");
-
+        let editor = env::var("EDITOR").expect("EDITOR not set");
+        let tmp_file = Temp::new_path().release().with_extension("yaml");
         let mut task = Task::new();
-        task.title = title;
+        {
+            let handle = File::create(&tmp_file.to_path_buf())
+                .expect("failed to open temporary file");
+            serde_yaml::to_writer(&handle, &task)
+                .expect("failed to fill temporary file");
+        }
 
-        println!("path: {:?}", self.workspace.calc_path(&self.dir, &task)?.as_path());
+        let mut error = String::new();
+        loop {
+            error.clear();
+
+            let mut child = Process::new(&editor).arg(&tmp_file.to_path_buf())
+                .spawn().expect("failed to start editor");
+
+            child.wait().expect("error while waiting for editor");
+
+            let handle = File::open(&tmp_file.to_path_buf())
+                .expect("failed to open temporary file");
+
+            match serde_yaml::from_reader::<File, Task>(handle) {
+                Ok(initial) => {
+                    task = initial;
+                    if task.title.is_empty() {
+                        error = format!("title is empty");
+                    }
+                },
+                Err(reason) => {
+                    error = format!("{}", reason);
+                }
+            };
+
+            if error.is_empty() {
+                let file = self.workspace.calc_path(&self.dir, &task)?;
+                if let Err(reason) = fs::rename(&tmp_file, &file) {
+                    return Err(format!("{}", reason));
+                }
+                println!("Task written to {:?}.", &file);
+                break;
+            } else {
+                println!("ERROR: {}\n", error);
+
+                let abort: bool;
+                loop {
+                    if let Ok(answer) = ask_yes_no_question(
+                        "Do you want to fix the error?", true) {
+                        abort = !answer;
+                        break;
+                    }
+                }
+
+                if abort {
+                    if let Err(reason) = fs::remove_file(&tmp_file) {
+                        return Err(format!("{}", reason));
+                    }
+                    break;
+                }
+            }
+        };
 
         Ok(())
     }
