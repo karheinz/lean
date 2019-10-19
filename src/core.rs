@@ -236,7 +236,13 @@ pub struct Workspace {
 
 impl Workspace {
     pub const CONFIG_FILE: &'static str = ".lean.yaml";
-    pub const SUB_DIRS: [&'static str; 8] = ["people", "tasks", "load", "record",
+    pub const PEOPLE_DIR: &'static str = "people";
+    pub const TASKS_DIR: &'static str = "tasks";
+    pub const VIEWS_DIR: &'static str = "views";
+    pub const LOADS_DIR: &'static str = "loads";
+    pub const TRACK_RECORDS_DIR: &'static str = "track_records";
+    pub const SUB_DIRS: [&'static str; 8] = [
+        Self::PEOPLE_DIR, Self::TASKS_DIR, Self::LOADS_DIR, Self::TRACK_RECORDS_DIR,
         "views/month", "views/quarter", "views/half_year", "views/year"];
 
     /// Returns a Workspace object for an already
@@ -324,15 +330,16 @@ impl Workspace {
         let resolved = resolve(&path);
         let to_check = get_deepest_existing_part_of(&resolved)?;
 
-        let tasks = self.base_dir.join(PathBuf::from("tasks"));
+        let tasks = self.base_dir.join(PathBuf::from(Self::TASKS_DIR));
         let source_hit = to_check.starts_with(&tasks) && to_check.is_dir();
         let mut view_hit = false;
         if !source_hit {
-            let views = self.base_dir.join(PathBuf::from("views"));
+            let views = self.base_dir.join(PathBuf::from(Self::VIEWS_DIR));
             for entry in views.read_dir().expect("failed to read views") {
                 if let Ok(entry) = entry {
                     if entry.path().is_dir() {
-                        let tasks = views.join(entry.path()).join(PathBuf::from("tasks"));
+                        let tasks = views.join(entry.path())
+                                         .join(PathBuf::from(Self::TASKS_DIR));
                         view_hit = to_check.starts_with(&tasks) && to_check.is_dir();
                         if view_hit {
                             break;
