@@ -2,7 +2,9 @@ use chrono::{DateTime, Local, Timelike, Weekday};
 use regex::Regex;
 use serde::{Serialize, Deserialize};
 use std::fs::{self, DirBuilder, File};
+use std::os::unix::fs as fs_unix;
 use std::path::{Path, PathBuf};
+use uuid::Uuid;
 
 
 pub fn normalize(name: &str) -> String {
@@ -237,14 +239,22 @@ pub struct Workspace {
 
 impl Workspace {
     pub const CONFIG_FILE: &'static str = ".lean.yaml";
+    pub const ARCHIVE_DIR: &'static str = ".archive";
     pub const PEOPLE_DIR: &'static str = "people";
+    pub const PEOPLE_ARCHIVE_DIR: &'static str = "people/.archive";
     pub const TASKS_DIR: &'static str = "tasks";
+    pub const TASKS_ARCHIVE_DIR: &'static str = "tasks/.archive";
     pub const VIEWS_DIR: &'static str = "views";
     pub const LOADS_DIR: &'static str = "loads";
     pub const TRACK_RECORDS_DIR: &'static str = "track_records";
     pub const SUB_DIRS: [&'static str; 8] = [
-        Self::PEOPLE_DIR, Self::TASKS_DIR, Self::LOADS_DIR, Self::TRACK_RECORDS_DIR,
+        Self::PEOPLE_ARCHIVE_DIR, Self::TASKS_ARCHIVE_DIR,
+        Self::LOADS_DIR, Self::TRACK_RECORDS_DIR,
         "views/month", "views/quarter", "views/half_year", "views/year"];
+
+    fn full_tasks_dir(&self) -> PathBuf {
+        self.base_dir.join(Self::TASKS_DIR)
+    }
 
     /// Returns a Workspace object for an already
     /// existing workspace. The passed directory has
@@ -315,30 +325,68 @@ impl Workspace {
         Ok(Workspace { base_dir: path })
     }
 
-    pub fn add_task(&self, _task: &Task) {
+    pub fn add_task(&self, dir: &Path, task: &Task) -> Result<PathBuf, String> {
+        let (file, link) = self.calc_paths_to_task(dir.to_str().unwrap(), &task)?;
+
+        {
+            let handle = File::create(&file).expect("failed to open file");
+            serde_yaml::to_writer(&handle, &task)
+                .expect("failed to fill file");
+        }
+
+        // Calc relative path from link to file!
+        let mut file_rel = PathBuf::new();
+        for ancestor in link.parent().unwrap().ancestors() {
+            if ancestor == self.full_tasks_dir() {
+                file_rel.push(Self::ARCHIVE_DIR);
+                break;
+            }
+            file_rel.push("..");
+        }
+        file_rel.push(file.file_name().unwrap());
+
+        // FIXME: Add link to task. Create link dir if not exists!
+        //        Might be necessary as user may call from within a view directory.
+        if let Err(reason) = fs_unix::symlink(&file_rel, &link) {
+            return Err(format!("{}", reason));
+        }
+
+        // FIXME: Add link to task in all views if appropriate!
+
+
+        Ok(PathBuf::from(link.file_name().unwrap()))
     }
 
-    /// Calculates the path to the file which would hold the task.
+    /// Calculates the paths to the file which would hold the task and the corresponding link.
     /// Returns an error if passed dir is resolved to be outside of the tasks directory.
-    /// The tasks directory can be inside a view though.
-    pub fn calc_path_to_task(&self, dir: &String, task: &Task) -> Result<PathBuf, String> {
-        match self.calc_path_to_task_dir(&dir) {
-            Ok(base_dir) => {
-                let file = base_dir.join(&self.get_file_name(task));
-                if !file.exists() {
-                    Ok(file)
-                } else {
-                    Err(format!("file already exists"))
+    /// The passed directory can be inside a view though.
+    fn calc_paths_to_task(&self, dir: &str, task: &Task) -> Result<(PathBuf, PathBuf), String> {
+        match self.calc_path_to_task_dir(dir) {
+            Ok(task_dir) => {
+                let mut file: PathBuf;
+                loop {
+                    let file_name = format!("{}.yaml",
+                        Uuid::new_v4().to_hyphenated().to_string());
+
+                    file = self.base_dir.join(Self::TASKS_ARCHIVE_DIR).join(&file_name);
+                    if !file.exists() {
+                        break;
+                    }
                 }
+
+                // FIXME: Make sure link does not exist!
+                let link = task_dir.join(&self.get_file_name(task));
+
+                Ok((file, link))
             },
             Err(reason) => Err(reason),
         }
     }
 
-    /// Calculates the path to the dir which would hold the task.
+    /// Calculates the path to the dir which would hold the link to the task.
     /// Returns an error if passed dir is resolved to be outside of the tasks directory.
     /// The tasks directory can be inside a view though.
-    pub fn calc_path_to_task_dir(&self, dir: &String) -> Result<PathBuf, String> {
+    pub fn calc_path_to_task_dir(&self, dir: &str) -> Result<PathBuf, String> {
         let mut path = PathBuf::from(dir);
         if path.is_relative() {
             if let Ok(full) = PathBuf::from(".").canonicalize() {
