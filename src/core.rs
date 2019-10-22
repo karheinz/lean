@@ -321,7 +321,24 @@ impl Workspace {
     /// Calculates the path to the file which would hold the task.
     /// Returns an error if passed dir is resolved to be outside of the tasks directory.
     /// The tasks directory can be inside a view though.
-    pub fn calc_path(&self, dir: &String, task: &Task) -> Result<PathBuf, String> {
+    pub fn calc_path_to_task(&self, dir: &String, task: &Task) -> Result<PathBuf, String> {
+        match self.calc_path_to_task_dir(&dir) {
+            Ok(base_dir) => {
+                let file = base_dir.join(&self.get_file_name(task));
+                if !file.exists() {
+                    Ok(file)
+                } else {
+                    Err(format!("file already exists"))
+                }
+            },
+            Err(reason) => Err(reason),
+        }
+    }
+
+    /// Calculates the path to the dir which would hold the task.
+    /// Returns an error if passed dir is resolved to be outside of the tasks directory.
+    /// The tasks directory can be inside a view though.
+    pub fn calc_path_to_task_dir(&self, dir: &String) -> Result<PathBuf, String> {
         let mut path = PathBuf::from(dir);
         if path.is_relative() {
             if let Ok(full) = PathBuf::from(".").canonicalize() {
@@ -354,12 +371,7 @@ impl Workspace {
         let mut result: Option<PathBuf> = None;
 
         if source_hit {
-            let r = resolved.join(self.get_file_name(&task));
-            if !r.exists() {
-                result = Some(r);
-            } else {
-                return Err(format!("{:?} already exists", r))
-            }
+            result = Some(resolved);
         } else if view_hit {
             // Translate view to source path!
             let mut components = resolved.strip_prefix(&self.base_dir)
@@ -367,16 +379,13 @@ impl Workspace {
             components.next();
             components.next();
 
-            let r = self.base_dir.join(components.as_path()).join(self.get_file_name(&task));
-            let result_dir = r.parent().unwrap();
+            let result_dir = self.base_dir.join(components.as_path());
             let to_check = get_deepest_existing_part_of(&result_dir)?;
 
-            if !to_check.is_dir() {
-                return Err(format!("{:?} is no dir", to_check));
-            } else if r.exists() {
-                return Err(format!("{:?} already exists", r));
+            if to_check.is_dir() {
+                result = Some(result_dir)
             } else {
-                result = Some(r)
+                return Err(format!("{:?} is no dir", to_check));
             }
         }
 

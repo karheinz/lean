@@ -212,6 +212,11 @@ impl AddTask {
 
 impl Command for AddTask {
     fn run(&self) -> Result<(), String> {
+        let base_dir = self.workspace.calc_path_to_task_dir(&self.dir)?;
+        if !base_dir.is_dir() {
+            return Err(format!("dir does not exist"));
+        }
+
         let editor = env::var("EDITOR").expect("EDITOR not set");
         let tmp_file = Temp::new_path().release().with_extension("yaml");
         let mut task = Task::new();
@@ -247,7 +252,8 @@ impl Command for AddTask {
             };
 
             if error.is_empty() {
-                let file = self.workspace.calc_path(&self.dir, &task)?;
+                // FIXME: Check if task already exists!
+                let file = self.workspace.calc_path_to_task(&self.dir, &task)?;
                 if let Err(reason) = fs::rename(&tmp_file, &file) {
                     return Err(format!("{}", reason));
                 }
