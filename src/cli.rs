@@ -214,6 +214,11 @@ impl Command for AddTask {
     fn run(&self) -> Result<(), String> {
         let task_dir = self.workspace.calc_path_to_task_dir(&self.dir)?;
 
+        // FIXME: Should be checked within workspace?!
+        if let Err(_) = PathBuf::from(&self.dir).canonicalize() {
+            return Err(format!("dir {:?} does not exist", &self.dir));
+        }
+
         let editor = env::var("EDITOR").expect("EDITOR not set");
         let tmp_file = Temp::new_path().release().with_extension("yaml");
         let mut task = Task::new();
