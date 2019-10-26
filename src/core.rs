@@ -332,11 +332,22 @@ impl Workspace {
     pub fn add_task(&self, dir: &Path, task: &Task) -> Result<PathBuf, String> {
         let (file, link) = self.calc_paths_to_task(dir.to_str().unwrap(), &task)?;
 
-        {
-            let handle = File::create(&file).expect("failed to open file");
-            serde_yaml::to_writer(&handle, &task)
-                .expect("failed to fill file");
+        // Create dirs.
+        let mut builder = DirBuilder::new();
+        builder.recursive(true);
+
+        for elem in vec![&file, &link] {
+            if let Some(parent) = elem.parent() {
+                builder.create(&parent)
+                    .expect(&format!("failed to create dir {:?}", parent));
+            }
         }
+
+        // Write file.
+        let handle = File::create(&file)
+            .expect(&format!("failed to open file {:?}", &file));
+        serde_yaml::to_writer(&handle, &task)
+            .expect(&format!("failed to fill {:?}", &file));
 
         // Calc relative path from link to file!
         let mut file_rel = PathBuf::new();
@@ -349,8 +360,7 @@ impl Workspace {
         }
         file_rel.push(file.file_name().unwrap());
 
-        // FIXME: Add link to task. Create link dir if not exists!
-        //        Might be necessary as user may call from within a view directory.
+        // Add link to task.
         if let Err(reason) = fs_unix::symlink(&file_rel, &link) {
             return Err(format!("{}", reason));
         }
