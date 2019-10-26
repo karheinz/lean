@@ -1,6 +1,7 @@
 use chrono::{DateTime, Local, Timelike, Weekday};
 use regex::Regex;
 use serde::{Serialize, Deserialize};
+use std::env;
 use std::fs::{self, DirBuilder, File};
 use std::os::unix::fs as fs_unix;
 use std::path::{Path, PathBuf};
@@ -47,11 +48,14 @@ pub fn to_ascii(name: &String) -> String {
 /// A slash (/) is used as file separator,
 /// so this function will not work on Windows.
 fn resolve(path: &Path) -> PathBuf {
-    if path.is_relative() {
-        panic!("can not resolve relative path")
+    let mut to_resolve = PathBuf::from(path);
+
+    if to_resolve.is_relative() {
+        to_resolve = env::current_dir()
+            .expect("failed to resolve current directory").join(path);
     }
 
-    if let Some(path_as_str) = path.to_str() {
+    if let Some(path_as_str) = to_resolve.to_str() {
         let mut parts: Vec<&str> = Vec::new();
         let mut iter = path_as_str.split("/");
         loop {
